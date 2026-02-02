@@ -16,7 +16,8 @@ const program = new Command();
 program
   .name('linear')
   .description('CLI tool for interfacing with the Linear API')
-  .version('1.0.0');
+  .version('1.0.0')
+  .option('-y, --no-interactive', 'Disable interactive prompts (for scripting/CI)');
 
 // Add all command groups
 program.addCommand(createAuthCommands());

@@ -23,6 +23,7 @@ export interface Config {
 export interface GlobalOptions {
   json?: boolean;
   noColor?: boolean;
+  noInteractive?: boolean;
   team?: string;
 }
 
@@ -34,7 +35,7 @@ export interface IssueListOptions extends GlobalOptions {
 }
 
 export interface IssueCreateOptions extends GlobalOptions {
-  title: string;
+  title?: string;
   description?: string;
   team?: string;
   state?: string;
@@ -57,7 +58,7 @@ export interface IssueUpdateOptions extends GlobalOptions {
 }
 
 export interface ProjectCreateOptions extends GlobalOptions {
-  name: string;
+  name?: string;
   description?: string;
   teams?: string[];
   lead?: string;
@@ -74,14 +75,14 @@ export interface ProjectUpdateOptions extends GlobalOptions {
 
 export interface CycleCreateOptions extends GlobalOptions {
   name?: string;
-  team: string;
-  startsAt: string;
-  endsAt: string;
+  team?: string;
+  startsAt?: string;
+  endsAt?: string;
   description?: string;
 }
 
 export interface LabelCreateOptions extends GlobalOptions {
-  name: string;
+  name?: string;
   team?: string;
   color?: string;
   description?: string;

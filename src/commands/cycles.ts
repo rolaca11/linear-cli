@@ -3,6 +3,16 @@ import { LinearDocument } from '@linear/sdk';
 import { getClient, resolveTeamId, resolveCycleId } from '../client.js';
 import { getDefaultTeam } from '../config.js';
 import { outputJson, outputTable, outputDetail, formatDate, success, error } from '../output.js';
+import {
+  isInteractiveMode,
+  promptForTeam,
+  promptForText,
+  promptForDate,
+  promptForConfirm,
+  promptForDescription,
+  getNextMonday,
+  getTwoWeeksLater
+} from '../prompts.js';
 import type { CycleCreateOptions, GlobalOptions } from '../types/index.js';
 
 export function createCycleCommands(): Command {
@@ -152,30 +162,86 @@ export function createCycleCommands(): Command {
   cycles
     .command('create')
     .description('Create a new cycle')
-    .requiredOption('--team <team>', 'Team name or ID')
-    .requiredOption('--starts-at <date>', 'Start date (YYYY-MM-DD)')
-    .requiredOption('--ends-at <date>', 'End date (YYYY-MM-DD)')
+    .option('--team <team>', 'Team name or ID')
+    .option('--starts-at <date>', 'Start date (YYYY-MM-DD)')
+    .option('--ends-at <date>', 'End date (YYYY-MM-DD)')
     .option('--name <name>', 'Cycle name')
     .option('--description <desc>', 'Cycle description')
     .option('--json', 'Output as JSON')
     .option('--no-color', 'Disable colored output')
-    .action(async (options: CycleCreateOptions & { startsAt: string; endsAt: string }) => {
+    .option('-y, --no-interactive', 'Disable interactive prompts')
+    .action(async (options: CycleCreateOptions & { startsAt?: string; endsAt?: string }) => {
       try {
         const client = getClient();
-        const teamId = await resolveTeamId(options.team);
+        const interactive = isInteractiveMode(options);
+
+        let teamId: string;
+        let startsAt = options.startsAt;
+        let endsAt = options.endsAt;
+        let name = options.name;
+        let description = options.description;
+
+        // Get team (required)
+        const teamFilter = options.team || getDefaultTeam();
+        if (teamFilter) {
+          teamId = await resolveTeamId(teamFilter);
+        } else if (interactive) {
+          teamId = await promptForTeam('Select team:');
+        } else {
+          error('Team is required. Use --team or set a default team.');
+          process.exit(1);
+        }
+
+        // Get start date (required)
+        if (!startsAt) {
+          if (interactive) {
+            const defaultStart = getNextMonday();
+            startsAt = await promptForDate('Enter start date (YYYY-MM-DD):', defaultStart);
+          } else {
+            error('Start date is required. Use --starts-at to specify.');
+            process.exit(1);
+          }
+        }
+
+        // Get end date (required)
+        if (!endsAt) {
+          if (interactive) {
+            const defaultEnd = getTwoWeeksLater(startsAt!);
+            endsAt = await promptForDate('Enter end date (YYYY-MM-DD):', defaultEnd);
+          } else {
+            error('End date is required. Use --ends-at to specify.');
+            process.exit(1);
+          }
+        }
+
+        // Interactive prompts for optional fields
+        if (interactive && !options.name && !options.description) {
+          const setAdditional = await promptForConfirm('Set additional fields?', false);
+
+          if (setAdditional) {
+            // Name
+            name = await promptForText('Enter cycle name (optional):');
+
+            // Description
+            const addDesc = await promptForConfirm('Add description?', false);
+            if (addDesc) {
+              description = await promptForDescription('Enter description:');
+            }
+          }
+        }
 
         const input: LinearDocument.CycleCreateInput = {
           teamId,
-          startsAt: new Date(options.startsAt),
-          endsAt: new Date(options.endsAt)
+          startsAt: new Date(startsAt!),
+          endsAt: new Date(endsAt!)
         };
 
-        if (options.name) {
-          input.name = options.name;
+        if (name) {
+          input.name = name;
         }
 
-        if (options.description) {
-          input.description = options.description;
+        if (description) {
+          input.description = description;
         }
 
         const result = await client.createCycle(input);

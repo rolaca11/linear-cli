@@ -4,6 +4,18 @@ import { LinearDocument } from '@linear/sdk';
 import { getClient, resolveIssueId, resolveTeamId, resolveProjectId, resolveUserId, resolveStateId, resolveLabelIds } from '../client.js';
 import { getDefaultTeam } from '../config.js';
 import { outputJson, outputTable, outputDetail, formatPriority, formatState, formatDate, success, error } from '../output.js';
+import {
+  isInteractiveMode,
+  promptForTeam,
+  promptForText,
+  promptForConfirm,
+  promptForState,
+  promptForPriority,
+  promptForUser,
+  promptForProject,
+  promptForLabels,
+  promptForDescription
+} from '../prompts.js';
 import type { IssueListOptions, IssueCreateOptions, IssueUpdateOptions, CommentCreateOptions, GlobalOptions } from '../types/index.js';
 
 export function createIssueCommands(): Command {
@@ -173,7 +185,7 @@ export function createIssueCommands(): Command {
   issues
     .command('create')
     .description('Create a new issue')
-    .requiredOption('--title <title>', 'Issue title')
+    .option('--title <title>', 'Issue title')
     .option('--description <desc>', 'Issue description')
     .option('--team <team>', 'Team name or ID')
     .option('--state <state>', 'Workflow state')
@@ -184,47 +196,117 @@ export function createIssueCommands(): Command {
     .option('--estimate <n>', 'Estimate points')
     .option('--json', 'Output as JSON')
     .option('--no-color', 'Disable colored output')
+    .option('-y, --no-interactive', 'Disable interactive prompts')
     .action(async (options: IssueCreateOptions & { labels?: string; priority: string; estimate?: string }) => {
       try {
         const client = getClient();
+        const interactive = isInteractiveMode(options);
 
+        let teamId: string;
+        let title = options.title;
+        let description = options.description;
+        let stateId: string | undefined;
+        let assigneeId: string | undefined;
+        let projectId: string | undefined;
+        let priority = parseInt(options.priority, 10);
+        let labelIds: string[] | undefined;
+        let estimate: number | undefined = options.estimate ? parseInt(options.estimate, 10) : undefined;
+
+        // Resolve team first (required)
         const teamFilter = options.team || getDefaultTeam();
-        if (!teamFilter) {
+        if (teamFilter) {
+          teamId = await resolveTeamId(teamFilter);
+        } else if (interactive) {
+          teamId = await promptForTeam('Select team:');
+        } else {
           error('Team is required. Use --team or set a default team.');
           process.exit(1);
         }
 
-        const teamId = await resolveTeamId(teamFilter);
-
-        const input: LinearDocument.IssueCreateInput = {
-          title: options.title,
-          teamId,
-          priority: parseInt(options.priority, 10)
-        };
-
-        if (options.description) {
-          input.description = options.description;
+        // Get title (required)
+        if (!title) {
+          if (interactive) {
+            title = await promptForText('Enter issue title:', { required: true });
+          } else {
+            error('Title is required. Use --title to specify.');
+            process.exit(1);
+          }
         }
 
+        // Resolve provided options
         if (options.state) {
-          input.stateId = await resolveStateId(options.state, teamId);
+          stateId = await resolveStateId(options.state, teamId);
         }
 
         if (options.assignee) {
-          input.assigneeId = await resolveUserId(options.assignee);
+          assigneeId = await resolveUserId(options.assignee);
         }
 
         if (options.project) {
-          input.projectId = await resolveProjectId(options.project);
+          projectId = await resolveProjectId(options.project);
         }
 
         if (options.labels) {
           const labelNames = options.labels.split(',').map(l => l.trim());
-          input.labelIds = await resolveLabelIds(labelNames, teamId);
+          labelIds = await resolveLabelIds(labelNames, teamId);
         }
 
-        if (options.estimate) {
-          input.estimate = parseInt(options.estimate, 10);
+        // Interactive prompts for optional fields
+        if (interactive && !options.state && !options.assignee && !options.project && !options.labels && !options.description) {
+          const setAdditional = await promptForConfirm('Set additional fields?', false);
+
+          if (setAdditional) {
+            // State
+            stateId = await promptForState(teamId, 'Select state:');
+
+            // Priority
+            priority = await promptForPriority('Select priority:');
+
+            // Assignee
+            assigneeId = await promptForUser('Select assignee:');
+
+            // Project
+            projectId = await promptForProject('Select project:');
+
+            // Labels
+            labelIds = await promptForLabels(teamId, 'Select labels:');
+
+            // Description
+            const addDesc = await promptForConfirm('Add description?', false);
+            if (addDesc) {
+              description = await promptForDescription('Enter description:');
+            }
+          }
+        }
+
+        const input: LinearDocument.IssueCreateInput = {
+          title: title!,
+          teamId,
+          priority
+        };
+
+        if (description) {
+          input.description = description;
+        }
+
+        if (stateId) {
+          input.stateId = stateId;
+        }
+
+        if (assigneeId) {
+          input.assigneeId = assigneeId;
+        }
+
+        if (projectId) {
+          input.projectId = projectId;
+        }
+
+        if (labelIds && labelIds.length > 0) {
+          input.labelIds = labelIds;
+        }
+
+        if (estimate !== undefined) {
+          input.estimate = estimate;
         }
 
         const result = await client.createIssue(input);
@@ -269,33 +351,105 @@ export function createIssueCommands(): Command {
     .option('--estimate <n>', 'New estimate points')
     .option('--json', 'Output as JSON')
     .option('--no-color', 'Disable colored output')
+    .option('-y, --no-interactive', 'Disable interactive prompts')
     .action(async (id: string, options: IssueUpdateOptions & { labels?: string; priority?: string; estimate?: string }) => {
       try {
         const client = getClient();
         const issueId = await resolveIssueId(id);
+        const interactive = isInteractiveMode(options);
 
         const input: Record<string, unknown> = {};
 
-        if (options.title) input.title = options.title;
-        if (options.description) input.description = options.description;
-        if (options.priority) input.priority = parseInt(options.priority, 10);
-        if (options.estimate) input.estimate = parseInt(options.estimate, 10);
+        // Check if any update flags were provided
+        const hasUpdateFlags = options.title || options.description || options.state ||
+          options.assignee || options.project || options.priority || options.labels || options.estimate;
 
-        if (options.state) {
-          input.stateId = await resolveStateId(options.state);
-        }
+        if (!hasUpdateFlags && interactive) {
+          // Fetch current issue to show defaults
+          const currentIssue = await client.issue(issueId);
+          const currentTeam = await currentIssue.team;
+          const teamId = currentTeam?.id;
 
-        if (options.assignee) {
-          input.assigneeId = await resolveUserId(options.assignee);
-        }
+          // Ask what to update
+          const updateChoices = [
+            { name: 'Title', value: 'title' },
+            { name: 'Description', value: 'description' },
+            { name: 'State', value: 'state' },
+            { name: 'Priority', value: 'priority' },
+            { name: 'Assignee', value: 'assignee' },
+            { name: 'Project', value: 'project' },
+            { name: 'Labels', value: 'labels' }
+          ];
 
-        if (options.project) {
-          input.projectId = await resolveProjectId(options.project);
-        }
+          const { fieldsToUpdate } = await inquirer.prompt([
+            {
+              type: 'checkbox',
+              name: 'fieldsToUpdate',
+              message: 'What would you like to update?',
+              choices: updateChoices
+            }
+          ]);
 
-        if (options.labels) {
-          const labelNames = options.labels.split(',').map(l => l.trim());
-          input.labelIds = await resolveLabelIds(labelNames);
+          if (fieldsToUpdate.length === 0) {
+            error('No updates selected');
+            process.exit(1);
+          }
+
+          for (const field of fieldsToUpdate as string[]) {
+            switch (field) {
+              case 'title':
+                input.title = await promptForText('Enter new title:', {
+                  default: currentIssue.title,
+                  required: true
+                });
+                break;
+              case 'description':
+                input.description = await promptForDescription('Enter new description:');
+                break;
+              case 'state':
+                const newStateId = await promptForState(teamId, 'Select new state:');
+                if (newStateId) input.stateId = newStateId;
+                break;
+              case 'priority':
+                input.priority = await promptForPriority('Select new priority:');
+                break;
+              case 'assignee':
+                const newAssigneeId = await promptForUser('Select new assignee:');
+                if (newAssigneeId) input.assigneeId = newAssigneeId;
+                break;
+              case 'project':
+                const newProjectId = await promptForProject('Select new project:');
+                if (newProjectId) input.projectId = newProjectId;
+                break;
+              case 'labels':
+                const newLabelIds = await promptForLabels(teamId, 'Select labels:');
+                if (newLabelIds.length > 0) input.labelIds = newLabelIds;
+                break;
+            }
+          }
+        } else {
+          // Process provided flags
+          if (options.title) input.title = options.title;
+          if (options.description) input.description = options.description;
+          if (options.priority) input.priority = parseInt(options.priority, 10);
+          if (options.estimate) input.estimate = parseInt(options.estimate, 10);
+
+          if (options.state) {
+            input.stateId = await resolveStateId(options.state);
+          }
+
+          if (options.assignee) {
+            input.assigneeId = await resolveUserId(options.assignee);
+          }
+
+          if (options.project) {
+            input.projectId = await resolveProjectId(options.project);
+          }
+
+          if (options.labels) {
+            const labelNames = options.labels.split(',').map(l => l.trim());
+            input.labelIds = await resolveLabelIds(labelNames);
+          }
         }
 
         if (Object.keys(input).length === 0) {

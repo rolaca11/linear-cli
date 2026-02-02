@@ -1,7 +1,17 @@
 import { Command } from '@naerth/commander-autocomplete';
+import inquirer from 'inquirer';
 import { LinearDocument } from '@linear/sdk';
 import { getClient, resolveProjectId, resolveTeamId, resolveUserId } from '../client.js';
 import { outputJson, outputTable, outputDetail, formatDate, success, error } from '../output.js';
+import {
+  isInteractiveMode,
+  promptForText,
+  promptForConfirm,
+  promptForUser,
+  promptForDate,
+  promptForDescription,
+  getTeamChoices
+} from '../prompts.js';
 import type { ProjectCreateOptions, ProjectUpdateOptions, GlobalOptions } from '../types/index.js';
 
 export function createProjectCommands(): Command {
@@ -138,39 +148,95 @@ export function createProjectCommands(): Command {
   projects
     .command('create')
     .description('Create a new project')
-    .requiredOption('--name <name>', 'Project name')
+    .option('--name <name>', 'Project name')
     .option('--description <desc>', 'Project description (max 255 chars)')
     .option('--teams <teams>', 'Comma-separated team names or IDs')
     .option('--lead <user>', 'Project lead')
     .option('--target-date <date>', 'Target date (YYYY-MM-DD)')
     .option('--json', 'Output as JSON')
     .option('--no-color', 'Disable colored output')
+    .option('-y, --no-interactive', 'Disable interactive prompts')
     .action(async (options: ProjectCreateOptions & { teams?: string; targetDate?: string }) => {
       try {
         const client = getClient();
+        const interactive = isInteractiveMode(options);
 
-        // Resolve team IDs first
+        let name = options.name;
+        let description = options.description;
         let teamIds: string[] = [];
+        let leadId: string | undefined;
+        let targetDate = options.targetDate;
+
+        // Get name (required)
+        if (!name) {
+          if (interactive) {
+            name = await promptForText('Enter project name:', { required: true });
+          } else {
+            error('Name is required. Use --name to specify.');
+            process.exit(1);
+          }
+        }
+
+        // Resolve teams from flags
         if (options.teams) {
           const teamNames = options.teams.split(',').map(t => t.trim());
           teamIds = await Promise.all(teamNames.map(t => resolveTeamId(t)));
+        } else if (interactive) {
+          // Prompt for teams
+          const teamChoices = await getTeamChoices();
+          const { selectedTeams } = await inquirer.prompt([
+            {
+              type: 'checkbox',
+              name: 'selectedTeams',
+              message: 'Select teams for this project:',
+              choices: teamChoices
+            }
+          ]);
+          teamIds = selectedTeams;
+        }
+
+        // Resolve lead from flags
+        if (options.lead) {
+          leadId = await resolveUserId(options.lead);
+        }
+
+        // Interactive prompts for optional fields
+        if (interactive && !options.description && !options.lead && !options.targetDate) {
+          const setAdditional = await promptForConfirm('Set additional fields?', false);
+
+          if (setAdditional) {
+            // Lead
+            leadId = await promptForUser('Select project lead:');
+
+            // Target date
+            targetDate = await promptForDate('Enter target date (YYYY-MM-DD):');
+
+            // Description
+            const addDesc = await promptForConfirm('Add description?', false);
+            if (addDesc) {
+              description = await promptForDescription('Enter description:');
+              if (description) {
+                description = description.substring(0, 255);
+              }
+            }
+          }
         }
 
         const input: LinearDocument.ProjectCreateInput = {
-          name: options.name,
+          name: name!,
           teamIds
         };
 
-        if (options.description) {
-          input.description = options.description.substring(0, 255);
+        if (description) {
+          input.description = description.substring(0, 255);
         }
 
-        if (options.lead) {
-          input.leadId = await resolveUserId(options.lead);
+        if (leadId) {
+          input.leadId = leadId;
         }
 
-        if (options.targetDate) {
-          input.targetDate = options.targetDate;
+        if (targetDate) {
+          input.targetDate = targetDate;
         }
 
         const result = await client.createProject(input);

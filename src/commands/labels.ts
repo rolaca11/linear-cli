@@ -1,9 +1,17 @@
 import { Command } from '@naerth/commander-autocomplete';
 import chalk from 'chalk';
+import inquirer from 'inquirer';
 import { LinearDocument } from '@linear/sdk';
 import { getClient, resolveTeamId } from '../client.js';
 import { getDefaultTeam } from '../config.js';
 import { outputJson, outputTable, success, error } from '../output.js';
+import {
+  isInteractiveMode,
+  promptForText,
+  promptForConfirm,
+  promptForColor,
+  getTeamChoices
+} from '../prompts.js';
 import type { LabelCreateOptions, GlobalOptions } from '../types/index.js';
 
 export function createLabelCommands(): Command {
@@ -87,30 +95,81 @@ export function createLabelCommands(): Command {
   labels
     .command('create')
     .description('Create a new label')
-    .requiredOption('--name <name>', 'Label name')
+    .option('--name <name>', 'Label name')
     .option('--team <team>', 'Team name or ID (omit for workspace label)')
     .option('--color <color>', 'Label color (hex, e.g., #ff0000)')
     .option('--description <desc>', 'Label description')
     .option('--json', 'Output as JSON')
     .option('--no-color', 'Disable colored output')
+    .option('-y, --no-interactive', 'Disable interactive prompts')
     .action(async (options: LabelCreateOptions & { color?: string }) => {
       try {
         const client = getClient();
+        const interactive = isInteractiveMode(options);
+
+        let name = options.name;
+        let teamId: string | undefined;
+        let labelColor = options.color;
+        let description = options.description;
+
+        // Get name (required)
+        if (!name) {
+          if (interactive) {
+            name = await promptForText('Enter label name:', { required: true });
+          } else {
+            error('Name is required. Use --name to specify.');
+            process.exit(1);
+          }
+        }
+
+        // Resolve team from flags
+        if (options.team) {
+          teamId = await resolveTeamId(options.team);
+        } else if (interactive) {
+          // Ask about team scope
+          const teamChoices = await getTeamChoices();
+          teamChoices.unshift({ name: 'Workspace (available to all teams)', value: '' });
+
+          const { selectedTeam } = await inquirer.prompt([
+            {
+              type: 'list',
+              name: 'selectedTeam',
+              message: 'Select team scope:',
+              choices: teamChoices
+            }
+          ]);
+
+          if (selectedTeam) {
+            teamId = selectedTeam;
+          }
+        }
+
+        // Interactive prompts for optional fields
+        if (interactive && !options.color && !options.description) {
+          // Color
+          labelColor = await promptForColor('Select label color:');
+
+          // Description
+          const addDesc = await promptForConfirm('Add description?', false);
+          if (addDesc) {
+            description = await promptForText('Enter description:');
+          }
+        }
 
         const input: LinearDocument.IssueLabelCreateInput = {
-          name: options.name
+          name: name!
         };
 
-        if (options.team) {
-          input.teamId = await resolveTeamId(options.team);
+        if (teamId) {
+          input.teamId = teamId;
         }
 
-        if (options.color) {
-          input.color = options.color;
+        if (labelColor) {
+          input.color = labelColor;
         }
 
-        if (options.description) {
-          input.description = options.description;
+        if (description) {
+          input.description = description;
         }
 
         const result = await client.createIssueLabel(input);
