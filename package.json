@@ -1,26 +1,41 @@
 {
-  "name": "linear-cli",
+  "name": "@rolaca11/linear-cli",
   "version": "1.0.0",
   "description": "CLI tool for interfacing with the Linear API",
   "type": "module",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "bin": {
-    "linear": "./bin/linear"
+    "linear": "bin/linear"
   },
+  "files": [
+    "dist",
+    "bin"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
   },
   "keywords": [
     "linear",
     "cli",
     "project-management",
-    "issue-tracker"
+    "issue-tracker",
+    "api"
   ],
-  "author": "",
+  "author": "rolaca11",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rolaca11/linear-cli.git"
+  },
+  "homepage": "https://github.com/rolaca11/linear-cli#readme",
+  "bugs": {
+    "url": "https://github.com/rolaca11/linear-cli/issues"
+  },
   "dependencies": {
     "@linear/sdk": "^29.0.0",
     "@naerth/commander-autocomplete": "^1.0.0",
