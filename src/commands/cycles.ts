@@ -223,10 +223,7 @@ export function createCycleCommands(): Command {
             name = await promptForText('Enter cycle name (optional):');
 
             // Description
-            const addDesc = await promptForConfirm('Add description?', false);
-            if (addDesc) {
-              description = await promptForDescription('Enter description:');
-            }
+            description = await promptForDescription();
           }
         }
 

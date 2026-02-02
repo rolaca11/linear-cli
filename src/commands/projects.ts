@@ -212,12 +212,9 @@ export function createProjectCommands(): Command {
             targetDate = await promptForDate('Enter target date (YYYY-MM-DD):');
 
             // Description
-            const addDesc = await promptForConfirm('Add description?', false);
-            if (addDesc) {
-              description = await promptForDescription('Enter description:');
-              if (description) {
-                description = description.substring(0, 255);
-              }
+            description = await promptForDescription();
+            if (description) {
+              description = description.substring(0, 255);
             }
           }
         }

@@ -149,11 +149,8 @@ export function createLabelCommands(): Command {
           // Color
           labelColor = await promptForColor('Select label color:');
 
-          // Description
-          const addDesc = await promptForConfirm('Add description?', false);
-          if (addDesc) {
-            description = await promptForText('Enter description:');
-          }
+          // Description (optional, just press enter to skip)
+          description = await promptForText('Enter description (optional):') || undefined;
         }
 
         const input: LinearDocument.IssueLabelCreateInput = {

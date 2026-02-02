@@ -371,15 +371,92 @@ export async function promptForText(message: string, options?: {
   return text;
 }
 
-export async function promptForDescription(message = 'Enter description:'): Promise<string | undefined> {
-  const { description } = await inquirer.prompt([
+export async function promptForDescription(message = 'Add description?'): Promise<string | undefined> {
+  // Check if an editor is available
+  const editorAvailable = !!(process.env.EDITOR || process.env.VISUAL);
+
+  const choices = [
+    { name: 'Skip', value: 'skip' },
+    { name: 'Type inline (single line)', value: 'inline' }
+  ];
+
+  if (editorAvailable) {
+    choices.push({ name: 'Open external editor', value: 'editor' });
+  }
+
+  const { useEditor } = await inquirer.prompt([
     {
-      type: 'editor',
-      name: 'description',
-      message
+      type: 'list',
+      name: 'useEditor',
+      message,
+      choices
     }
   ]);
-  return description?.trim() || undefined;
+
+  if (useEditor === 'skip') {
+    return undefined;
+  }
+
+  if (useEditor === 'inline') {
+    const { description } = await inquirer.prompt([
+      {
+        type: 'input',
+        name: 'description',
+        message
+      }
+    ]);
+    return description?.trim() || undefined;
+  }
+
+  // Editor mode - spawn editor manually for better control
+  const { spawnSync } = await import('child_process');
+  const { mkdtempSync, writeFileSync, readFileSync, unlinkSync } = await import('fs');
+  const { tmpdir } = await import('os');
+  const { join } = await import('path');
+
+  const editor = process.env.EDITOR || process.env.VISUAL || 'vi';
+  const tmpDir = mkdtempSync(join(tmpdir(), 'linear-cli-'));
+  const tmpFile = join(tmpDir, 'description.md');
+
+  try {
+    writeFileSync(tmpFile, '');
+
+    const result = spawnSync(editor, [tmpFile], {
+      stdio: 'inherit',
+      shell: true
+    });
+
+    if (result.status !== 0) {
+      console.error('Editor exited with non-zero status. Using inline input instead.');
+      const { description } = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'description',
+          message
+        }
+      ]);
+      return description?.trim() || undefined;
+    }
+
+    const content = readFileSync(tmpFile, 'utf-8');
+    return content?.trim() || undefined;
+  } catch (err) {
+    console.error('Failed to open editor:', err instanceof Error ? err.message : err);
+    const { description } = await inquirer.prompt([
+      {
+        type: 'input',
+        name: 'description',
+        message
+      }
+    ]);
+    return description?.trim() || undefined;
+  } finally {
+    try {
+      unlinkSync(tmpFile);
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
 }
 
 export async function promptForConfirm(message: string, defaultValue = false): Promise<boolean> {

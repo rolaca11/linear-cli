@@ -272,10 +272,7 @@ export function createIssueCommands(): Command {
             labelIds = await promptForLabels(teamId, 'Select labels:');
 
             // Description
-            const addDesc = await promptForConfirm('Add description?', false);
-            if (addDesc) {
-              description = await promptForDescription('Enter description:');
-            }
+            description = await promptForDescription();
           }
         }
 
