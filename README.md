@@ -1,14 +1,26 @@
 # Linear CLI
 
-A command-line interface for interacting with the [Linear](https://linear.app) API.
+A command-line interface for managing issues, projects, cycles, and teams in [Linear](https://linear.app).
 
 ## Installation
 
+**From npm (recommended):**
+
 ```bash
+npm install -g @rolaca11/linear-cli
+```
+
+**From source:**
+
+```bash
+git clone https://github.com/rolaca11/linear-cli.git
+cd linear-cli
 npm install
 npm run build
 npm link
 ```
+
+Requires Node.js 18 or later.
 
 ## Authentication
 
@@ -89,7 +101,7 @@ linear teams view TECH
 ```bash
 linear cycles list --team TECH
 linear cycles current --team TECH
-linear cycles create --team TECH --starts-at 2024-01-01 --ends-at 2024-01-14
+linear cycles create --team TECH --starts-at 2026-02-02 --ends-at 2026-02-16
 ```
 
 ### Labels
