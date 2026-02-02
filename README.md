@@ -1,5 +1,11 @@
 # Linear CLI
 
+[![npm version](https://img.shields.io/npm/v/@rolaca11/linear-cli)](https://www.npmjs.com/package/@rolaca11/linear-cli)
+[![npm downloads](https://img.shields.io/npm/dm/@rolaca11/linear-cli)](https://www.npmjs.com/package/@rolaca11/linear-cli)
+[![CI](https://github.com/rolaca11/linear-cli/actions/workflows/publish.yml/badge.svg)](https://github.com/rolaca11/linear-cli/actions/workflows/publish.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/node/v/@rolaca11/linear-cli)](https://nodejs.org)
+
 A command-line interface for managing issues, projects, cycles, and teams in [Linear](https://linear.app).
 
 ## Installation
