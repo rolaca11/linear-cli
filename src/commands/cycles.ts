@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import { Command } from '@naerth/commander-autocomplete';
 import { LinearDocument } from '@linear/sdk';
 import { getClient, resolveTeamId, resolveCycleId } from '../client.js';
 import { getDefaultTeam } from '../config.js';

@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import { Command } from '@naerth/commander-autocomplete';
 import chalk from 'chalk';
 import { LinearDocument } from '@linear/sdk';
 import { getClient, resolveTeamId } from '../client.js';

@@ -126,15 +126,18 @@ All commands support these options:
 Enable bash completion:
 
 ```bash
-# Add to your .bashrc or .bash_profile
-eval "$(linear completion)"
+linear --setup
+source ~/.bashrc
 ```
 
-For oh-my-bash users, create `~/.oh-my-bash/custom/completions/linear.completion.sh`:
+To disable completion:
 
 ```bash
-eval "$(linear completion)"
+linear --cleanup
+source ~/.bashrc
 ```
+
+Completions are auto-generated from the CLI command structure using [@naerth/commander-autocomplete](https://github.com/Naerth/commander-autocomplete).
 
 ## Environment Variables
 
@@ -144,6 +147,41 @@ eval "$(linear completion)"
 ## Configuration
 
 Credentials are stored in `~/.config/linear-cli/config.json` with secure file permissions (600).
+
+## AI Agent Skill
+
+This CLI includes an agent skill that teaches AI coding assistants (Claude Code, Cursor, OpenCode, etc.) how to use the Linear CLI. It uses the [Vercel Skills](https://github.com/vercel-labs/skills) ecosystem.
+
+### Install the Skill
+
+```bash
+# Using the linear CLI (wrapper for npx skills)
+linear skill install
+
+# Or directly with npx skills
+npx skills add rolaca11/linear-cli
+
+# Install for specific agents
+linear skill install -a claude-code -a cursor
+
+# Install globally (user directory)
+linear skill install --global
+```
+
+### Manage Skills
+
+```bash
+# List installed skills
+linear skill list
+
+# Update skills
+linear skill update
+
+# Uninstall
+linear skill uninstall
+```
+
+Once installed, AI agents will automatically know how to use the Linear CLI when you mention Linear issues, projects, or related tasks.
 
 ## License
 

@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import { Command } from '@naerth/commander-autocomplete';
 import { getClient, resolveUserId } from '../client.js';
 import { outputJson, outputTable, outputDetail, formatDate, success, error } from '../output.js';
 import type { GlobalOptions } from '../types/index.js';

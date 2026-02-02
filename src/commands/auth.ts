@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import { Command } from '@naerth/commander-autocomplete';
 import inquirer from 'inquirer';
 import { LinearClient } from '@linear/sdk';
 import { getAccessToken, setApiKey, clearCredentials, getConfigPath, getAuthMethod, setOAuthTokens, getOAuthTokens, getOAuthAppConfig, setOAuthAppConfig } from '../config.js';

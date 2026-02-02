@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { Command } from 'commander';
+import { Command } from '@naerth/commander-autocomplete';
 import { createAuthCommands } from './commands/auth.js';
 import { createIssueCommands } from './commands/issues.js';
 import { createProjectCommands } from './commands/projects.js';
@@ -9,7 +9,7 @@ import { createCycleCommands } from './commands/cycles.js';
 import { createLabelCommands } from './commands/labels.js';
 import { createUserCommands } from './commands/users.js';
 import { createStateCommands } from './commands/states.js';
-import { createCompletionCommand } from './commands/completion.js';
+import { createSkillCommand } from './commands/skill.js';
 
 const program = new Command();
 
@@ -27,7 +27,7 @@ program.addCommand(createCycleCommands());
 program.addCommand(createLabelCommands());
 program.addCommand(createUserCommands());
 program.addCommand(createStateCommands());
-program.addCommand(createCompletionCommand());
+program.addCommand(createSkillCommand());
 
 // Add helpful examples
 program.addHelpText('after', `
