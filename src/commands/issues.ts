@@ -42,13 +42,14 @@ export function createIssueCommands(): Command {
 
         let filter: Record<string, unknown> = {};
 
+        let resolvedTeamId: string | undefined;
         if (teamFilter) {
-          const teamId = await resolveTeamId(teamFilter);
-          filter.team = { id: { eq: teamId } };
+          resolvedTeamId = await resolveTeamId(teamFilter);
+          filter.team = { id: { eq: resolvedTeamId } };
         }
 
         if (options.state) {
-          const stateId = await resolveStateId(options.state);
+          const stateId = await resolveStateId(options.state, resolvedTeamId);
           filter.state = { id: { eq: stateId } };
         }
 
@@ -431,8 +432,16 @@ export function createIssueCommands(): Command {
           if (options.priority) input.priority = parseInt(options.priority, 10);
           if (options.estimate) input.estimate = parseInt(options.estimate, 10);
 
+          // Fetch issue's team for correct state/label resolution
+          let teamId: string | undefined;
+          if (options.state || options.labels) {
+            const currentIssue = await client.issue(issueId);
+            const currentTeam = await currentIssue.team;
+            teamId = currentTeam?.id;
+          }
+
           if (options.state) {
-            input.stateId = await resolveStateId(options.state);
+            input.stateId = await resolveStateId(options.state, teamId);
           }
 
           if (options.assignee) {
@@ -445,7 +454,7 @@ export function createIssueCommands(): Command {
 
           if (options.labels) {
             const labelNames = options.labels.split(',').map(l => l.trim());
-            input.labelIds = await resolveLabelIds(labelNames);
+            input.labelIds = await resolveLabelIds(labelNames, teamId);
           }
         }
 
